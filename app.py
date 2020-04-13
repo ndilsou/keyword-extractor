@@ -23,7 +23,8 @@ def main():
     store['nlp'] = nlp
     sidebar(store)
 
-    if (corpus:= store.get('corpus')):
+    corpus = store.get('corpus')
+    if corpus:
         document_display(store['fileids'], corpus)
         result = extract_keywords(corpus, store['model_params'])
         extraction_report(result)
@@ -72,8 +73,9 @@ def file_uploader(store: dict):
     if st.sidebar.button("Clear file"):
         store.pop('text_corpus', None)
         store.pop('corpus', None)
-
-    if (corpus := store.get('text_corpus')):
+    
+    corpus = store.get('text_corpus')
+    if corpus:
 
         if st.sidebar.checkbox("List documents in corpus?", True):
             st.sidebar.dataframe(pd.Series(corpus.fileids(), name='documents'))
