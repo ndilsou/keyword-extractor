@@ -14,3 +14,13 @@ def summarize_text(doc: Doc):
     doc_end = " ".join(tlz.concat(sentences[-2:]))
 
     return f'{doc_start}\n...\n{doc_mid}\n...\n{doc_end}'
+
+
+def highlight_sentence(sentence, start_char, end_char) -> str:
+    '''
+    Surrounds the span between start and end by a emphasized markdown.
+    '''
+
+    span = sentence[start_char:end_char+1]
+    highlighted_sent = sentence[:start_char] + f'*__{span}__*' + sentence[end_char+1:]
+    return highlighted_sent
