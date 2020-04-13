@@ -1,4 +1,4 @@
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Iterable
 from zipfile import ZipFile
 
 from preshed.maps import PreshMap
@@ -10,8 +10,8 @@ import streamlit as st
 
 from keyword_extractor import extractors
 from keyword_extractor.corpus import Corpus, create_spacy_corpus, create_text_corpus_from_zipfile
-from keyword_extractor.extractors import KeywordExtractor
-from keyword_extractor.utils import summarize_text
+from keyword_extractor.extractors import KeywordExtractor, ExtractionResult, DocMatch, SentenceMatch
+from keyword_extractor.utils import summarize_text, highlight_sentence
 
 HTML_SPACE = '&nbsp;' # To help with markdown formating
 
@@ -25,9 +25,8 @@ def main():
 
     if (corpus:= store.get('corpus')):
         document_display(store['fileids'], corpus)
-        extractor = fit_model(corpus, store['selected_model'])
-        extraction_results(extractor)
-        # keyword_table(extractor)
+        result = extract_keywords(corpus, store['model_params'])
+        extraction_report(result)
 
 
 def document_display(fileids: Sequence[str], corpus: Corpus):
@@ -49,9 +48,7 @@ def sidebar(store: dict):
     '''
 
     file_uploader(store)
-
-    if (selected_model := st.sidebar.selectbox('Model', ['TfIdf', 'TextRank', 'EmbedRank'])):
-        store['selected_model'] = selected_model
+    model_selector(store)
 
 
 def file_uploader(store: dict):
@@ -82,18 +79,31 @@ def file_uploader(store: dict):
             st.sidebar.dataframe(pd.Series(corpus.fileids(), name='documents'))
 
 
-def fit_model(corpus: Corpus, selected_model: str, topn: int = 5) -> KeywordExtractor:
+def model_selector(store: dict):
+    '''
+    Allows user to select a model and possibly some hyperparameters.
+    '''
+    model = st.sidebar.selectbox('Model', ['TfIdf', 'TextRank', 'EmbedRank'])
+    topn = st.sidebar.number_input('TopN to extract per document:', value=5, min_value=1)
+    store['model_params'] = {'model': model, 'topn': topn}
+
+
+def extract_keywords(corpus: Corpus, params: dict) -> ExtractionResult:
     klass = {
-        'TfIdf': extractors.TfIdfKeywordExtractor
-    }.get(selected_model, None)
-    extractor = klass(topn)
+        'TfIdf': extractors.TfIdfKeywordExtractor,
+        'TextRank': extractors.TextRankKeywordExtractor
+    }.get(params['model'], None)
+    extractor = klass(params['topn'])
     with st.spinner(text='Training in progress...'):
         extractor.fit(corpus)
 
-    return extractor
+    with st.spinner(text='Extraction in progress...'):
+        result = extractor.extract(corpus)
+
+    return result
 
 
-def extraction_results(extractor: KeywordExtractor):
+def extraction_report(result: ExtractionResult):
     st.header('Extraction results')
     choices = {
         'Summary table': summary_table,
@@ -101,12 +111,12 @@ def extraction_results(extractor: KeywordExtractor):
     }
     choice = st.selectbox('Output', list(choices.keys()))
     output = choices[choice]
-    output(extractor)
+    output(result)
 
 
-def summary_table(extractor: KeywordExtractor):
+def summary_table(result: ExtractionResult):
     st.subheader('Keywords with scores and parent documents')
-    scores = extractor.scores
+    scores = result.scores
     aggregate_scores = {
         kw: {
             'average_score': np.mean(list(v.values())),
@@ -121,28 +131,39 @@ def summary_table(extractor: KeywordExtractor):
     st.table(df)
 
 
-def full_report(extractor: KeywordExtractor):
-    keywords = list(extractor.summary.keys())
+def full_report(result: ExtractionResult):
+    '''
+    Show the report for each keywords with optional filtering.
+    '''
+    keywords = list(result.raw.keys())
     selected_keywords = st.multiselect("Filter keywords", keywords)
 
-    for kw, info in extractor.summary.items():
+    for kw, matches in result.raw.items():
         if selected_keywords and kw not in selected_keywords:
             continue
 
-        st.markdown('____')
-        st.markdown(f'#### {kw}')
+        keyword_report(kw, matches)
 
-        for record in info:
-            st.markdown(f'* ##### file: {record["fileid"]}')
-            st.markdown(f'* ##### score: {record["score"]:.3f}')
-            for sent in record['sents']:
-                highlighted_sent = sent.replace(kw, f'*__{kw}__*')
-                st.markdown(f'> {highlighted_sent}')
+
+def keyword_report(keyword, doc_matches: Iterable[DocMatch]):
+    '''
+    Show the report for a given keyword.
+    '''
+
+    st.markdown('____')
+    st.markdown(f'#### {keyword}')
+
+    for doc_match in doc_matches:
+        st.markdown(f'* ##### file: {doc_match.fileid}')
+        st.markdown(f'* ##### score: {doc_match.score:.3f}')
+        for sent_match in doc_match.sents:
+            highlighted_sent = highlight_sentence(sent_match.text, sent_match.start_char, sent_match.end_char)
+            st.markdown(f'> {highlighted_sent}')
 
 
 @st.cache(hash_funcs={Language: id}, allow_output_mutation=True)
 def get_spacy_lang() -> Language:
-    return spacy.load('en_core_web_md')
+    return spacy.load('en_core_web_sm')
 
 
 @st.cache(allow_output_mutation=True)
