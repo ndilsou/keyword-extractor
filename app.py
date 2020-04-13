@@ -2,6 +2,7 @@ from typing import Dict, Sequence
 from zipfile import ZipFile
 
 from preshed.maps import PreshMap
+import numpy as np
 import pandas as pd
 import spacy
 from spacy.language import Language
@@ -12,38 +13,31 @@ from keyword_extractor.corpus import Corpus, create_spacy_corpus, create_text_co
 from keyword_extractor.extractors import KeywordExtractor
 from keyword_extractor.utils import summarize_text
 
+HTML_SPACE = '&nbsp;' # To help with markdown formating
 
 def main():
+    with st.spinner(text='Loading NLP model...'):
+        nlp = get_spacy_lang()
     st.title('Keyword Extractor')
     store = get_state_store()
+    store['nlp'] = nlp
     sidebar(store)
 
-    if corpus:= store.get('corpus'):
+    if (corpus:= store.get('corpus')):
         document_display(store['fileids'], corpus)
         extractor = fit_model(corpus, store['selected_model'])
-        keyword_table(extractor)
+        extraction_results(extractor)
+        # keyword_table(extractor)
 
 
-# @st.cache(hash_funcs={Language: id, PreshMap: id})
 def document_display(fileids: Sequence[str], corpus: Corpus):
-    # corpus = store['text_corpus']
-    # files = corpus.fileids()
     selection = st.multiselect("Select which document to show", fileids)
-    # for fileid in selection:
-    #     st.subheader(fileid)
-    #     if st.checkbox('Full text', key=f'summary-toggle-{fileid}'):
-    #         text = corpus.raw(fileid)
-    #         st.text(text)
-    #     else:
-    #         st.text(summarize_text(corpus, fileid))
-    # corpus = store['corpus']
 
     for doc in corpus.get(lambda doc: doc._.meta['fileid'] in selection):
         fileid = doc._.meta['fileid']
         st.subheader(fileid)
 
         if st.checkbox('Full text', key=f'summary-toggle-{fileid}'):
-            # text = corpus.raw(fileid)
             st.text(doc)
         else:
             st.text(summarize_text(doc))
@@ -56,7 +50,7 @@ def sidebar(store: dict):
 
     file_uploader(store)
 
-    if selected_model := st.sidebar.selectbox('Model', ['TfIdf', 'TextRank', 'EmbedRank']):
+    if (selected_model := st.sidebar.selectbox('Model', ['TfIdf', 'TextRank', 'EmbedRank'])):
         store['selected_model'] = selected_model
 
 
@@ -72,8 +66,7 @@ def file_uploader(store: dict):
             text_corpus = create_text_corpus_from_zipfile(ZipFile(result))
             store['text_corpus'] = text_corpus
             store['fileids'] = text_corpus.fileids()
-            with st.spinner(text='In progress...'):
-                nlp = get_spacy_lang()
+            nlp = store['nlp']
             corpus = create_spacy_corpus(text_corpus, nlp)
             store['corpus'] = corpus
     else:
@@ -83,10 +76,10 @@ def file_uploader(store: dict):
         store.pop('text_corpus', None)
         store.pop('corpus', None)
 
-    if corpus := store.get('text_corpus'):
+    if (corpus := store.get('text_corpus')):
 
         if st.sidebar.checkbox("List documents in corpus?", True):
-            st.sidebar.markdown(f'```{corpus.fileids()}```')
+            st.sidebar.dataframe(pd.Series(corpus.fileids(), name='documents'))
 
 
 def fit_model(corpus: Corpus, selected_model: str, topn: int = 5) -> KeywordExtractor:
@@ -100,14 +93,54 @@ def fit_model(corpus: Corpus, selected_model: str, topn: int = 5) -> KeywordExtr
     return extractor
 
 
-def keyword_table(extractor: KeywordExtractor):
-    st.subheader('Keywords with scores')
+def extraction_results(extractor: KeywordExtractor):
+    st.header('Extraction results')
+    choices = {
+        'Summary table': summary_table,
+        'Full report': full_report
+    }
+    choice = st.selectbox('Output', list(choices.keys()))
+    output = choices[choice]
+    output(extractor)
+
+
+def summary_table(extractor: KeywordExtractor):
+    st.subheader('Keywords with scores and parent documents')
     scores = extractor.scores
-    df = pd.DataFrame(scores)
-    st.dataframe(df)
+    aggregate_scores = {
+        kw: {
+            'average_score': np.mean(list(v.values())),
+            'documents': ', '.join(v.keys())
+        }
+        for kw, v
+        in scores.items()
+    }
+    df = pd.DataFrame \
+        .from_dict(aggregate_scores, orient='index') \
+        .sort_values('average_score', ascending=False)
+    st.table(df)
 
 
-@st.cache(hash_funcs={Language: id})
+def full_report(extractor: KeywordExtractor):
+    keywords = list(extractor.summary.keys())
+    selected_keywords = st.multiselect("Filter keywords", keywords)
+
+    for kw, info in extractor.summary.items():
+        if selected_keywords and kw not in selected_keywords:
+            continue
+
+        st.markdown('____')
+        st.markdown(f'#### {kw}')
+
+        for record in info:
+            st.markdown(f'* ##### file: {record["fileid"]}')
+            st.markdown(f'* ##### score: {record["score"]:.3f}')
+            for sent in record['sents']:
+                highlighted_sent = sent.replace(kw, f'*__{kw}__*')
+                st.markdown(f'> {highlighted_sent}')
+
+
+@st.cache(hash_funcs={Language: id}, allow_output_mutation=True)
 def get_spacy_lang() -> Language:
     return spacy.load('en_core_web_md')
 

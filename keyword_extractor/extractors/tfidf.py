@@ -18,10 +18,10 @@ class TfIdfKeywordExtractor(KeywordExtractor):
     _vocab: np.array
     _term_freq_matrix: np.array
 
-    def __init__(self, topn: int = 5):
+    def __init__(self, topn: int = 5, ngram_range=(1, 1)):
         super().__init__(topn)
         self.summary = defaultdict(list)
-        self._tfidf = fe.text.TfidfVectorizer(stop_words='english', ngram_range=(1, 1))
+        self._tfidf = fe.text.TfidfVectorizer(stop_words='english', ngram_range=ngram_range)
 
     def fit(self, corpus: Corpus):
         X = [doc.text for doc in corpus]
@@ -68,12 +68,6 @@ class TfIdfKeywordExtractor(KeywordExtractor):
 
             for kw, info in self.summary.items()
         }
-
-    @property
-    def fileids(self) -> List[Tuple[str, str]]:
-        '''
-        list of keywords with their parent fileid.
-        '''
 
     @property
     def sents(self) -> List[Tuple[str, str, str]]:
