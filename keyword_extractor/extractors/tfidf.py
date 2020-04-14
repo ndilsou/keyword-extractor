@@ -20,8 +20,7 @@ class TfIdfKeywordExtractor(KeywordExtractor):
     _vocab: np.array
     _term_freq_matrix: np.array
 
-    def __init__(self, topn: int = 5, ngram_range=(1, 1)):
-        super().__init__(topn)
+    def __init__(self, ngram_range=(1, 1)):
         self._tfidf = fe.text.TfidfVectorizer(stop_words='english', ngram_range=ngram_range)
 
     def fit(self, corpus: Corpus):
@@ -30,7 +29,7 @@ class TfIdfKeywordExtractor(KeywordExtractor):
 
         return self
 
-    def extract(self, corpus: Corpus) -> ExtractionResult:
+    def extract(self, corpus: Corpus, topn: int = 5) -> ExtractionResult:
         if sparse.issparse(self._term_freq_matrix):
             self._term_freq_matrix = self._term_freq_matrix.toarray()
 
@@ -40,7 +39,7 @@ class TfIdfKeywordExtractor(KeywordExtractor):
 
         results = defaultdict(list)
         for i, doc in enumerate(corpus):
-            top_kw_idx = np.flip(argsorted[i, -self.topn:])
+            top_kw_idx = np.flip(argsorted[i, -topn:])
             keywords = self._vocab[top_kw_idx]
             scores = self._term_freq_matrix[i, top_kw_idx]
             doc_matches = self._extract_doc_matches(corpus.spacy_lang, doc, keywords, scores)

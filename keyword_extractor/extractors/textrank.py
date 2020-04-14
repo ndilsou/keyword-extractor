@@ -24,12 +24,10 @@ class TextRankKeywordExtractor(KeywordExtractor):
 
     def __init__(
             self,
-            topn: int = 5,
             window_size: int = 3,
             include_pos=('NOUN', 'PROPN', 'ADJ'),
             edge_weighting: str = 'binary'
     ):
-        super().__init__(topn)
         self.include_pos = include_pos
         self.window_size = window_size
         self.edge_weighting = edge_weighting
@@ -38,13 +36,13 @@ class TextRankKeywordExtractor(KeywordExtractor):
         del corpus
         return self
 
-    def extract(self, corpus: Corpus) -> ExtractionResult:
+    def extract(self, corpus: Corpus, topn: int = 5) -> ExtractionResult:
         results = defaultdict(list)
         for i, doc in enumerate(corpus):
             keyterms = textrank(doc,
                                 edge_weighting=self.edge_weighting,
                                 include_pos=self.include_pos,
-                                topn=self.topn,
+                                topn=topn,
                                 window_size=self.window_size)
 
             keywords, scores = list(zip(*keyterms))

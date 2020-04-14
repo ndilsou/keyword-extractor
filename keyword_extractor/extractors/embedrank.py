@@ -33,8 +33,7 @@ class EmbedRankKeywordExtractor(KeywordExtractor):
         'DAN': 'https://tfhub.dev/google/universal-sentence-encoder/4'
     }
 
-    def __init__(self, topn: int = 5, variant='DAN'):
-        super().__init__(topn)
+    def __init__(self, variant='DAN'):
         self.variant = variant
 
     def fit(self, corpus: Corpus):
@@ -43,25 +42,31 @@ class EmbedRankKeywordExtractor(KeywordExtractor):
 
         return self
 
-    def extract(self, corpus: Corpus) -> ExtractionResult:
+    def extract(self, corpus: Corpus, topn: int = 5) -> ExtractionResult:
         results = defaultdict(list)
         # TODO: Trivially parallelizable. need to wrap around a ProcessPoolExecutor for large enough corpora.
         for doc in corpus:
             doc_embedding = self.encoder([doc.text]).numpy()
 
-            noun_chunks = list({nc.text for nc in doc.noun_chunks})
-            candidate_embeddings = self.encoder(noun_chunks).numpy()
-            similiarities = cosine_similarity(doc_embedding, candidate_embeddings)
-            argsorted = np.argsort(similiarities)
-            top_kw_idx = np.flip(argsorted[-self.topn:])
-            scores = similiarities[top_kw_idx]
-            keywords = [noun_chunks[i] for i in top_kw_idx]
+            keywords, scores = self._get_top_keywords_for_doc(doc, topn)
             doc_matches = self._extract_doc_matches(corpus.spacy_lang, doc, keywords, scores)
 
             for kw, match in doc_matches.items():
                 results[kw].append(match)
 
         return ExtractionResult(results)
+
+    def _get_top_keywords_for_doc(self, doc: Doc, topn: int) -> Tuple[List[str], List[float]]:
+        doc_embedding = self.encoder([doc.text]).numpy()
+
+        noun_chunks = list({nc.text for nc in doc.noun_chunks})
+        candidate_embeddings = self.encoder(noun_chunks).numpy()
+        similiarities = cosine_similarity(doc_embedding, candidate_embeddings)
+        argsorted = np.argsort(similiarities)
+        top_kw_idx = np.flip(argsorted[-topn:])
+        scores = similiarities[top_kw_idx]
+        keywords = [noun_chunks[i] for i in top_kw_idx]
+        return keywords, scores
 
     def _extract_doc_matches(
             self,

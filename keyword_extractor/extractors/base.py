@@ -14,15 +14,12 @@ class KeywordExtractor:
     Extract keywords from a corpus.
     '''
 
-    def __init__(self, topn: int = 5):
-        self.topn = topn
-
     @abstractmethod
     def fit(self, corpus: Corpus):
         raise NotImplementedError
 
     @abstractmethod
-    def extract(self, corpus: Corpus) -> ExtractionResult:
+    def extract(self, corpus: Corpus, topn: int = 5) -> ExtractionResult:
         raise NotImplementedError
 
     @abstractmethod

@@ -70,7 +70,7 @@ def file_uploader(store: dict):
             corpus = create_spacy_corpus(text_corpus, nlp)
             store['corpus'] = corpus
     else:
-        st.sidebar.info("Upload one or more `.zip` files.")
+        st.sidebar.info("Upload a `.zip` files.")
 
     if st.sidebar.button("Clear file"):
         store.pop('text_corpus', None)
@@ -99,12 +99,12 @@ def extract_keywords(corpus: Corpus, params: dict) -> ExtractionResult:
         'TextRank': extractors.TextRankKeywordExtractor,
         'EmbedRank': extractors.EmbedRankKeywordExtractor
     }.get(params['model'], None)
-    extractor = klass(params['topn'])
+    extractor = klass()
     with st.spinner(text='Training in progress...'):
         extractor = fit_model(extractor, corpus)
 
     with st.spinner(text='Extraction in progress...'):
-        result = extractor.extract(corpus)
+        result = extractor.extract(corpus, params['topn'])
 
     return result
 
