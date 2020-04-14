@@ -19,22 +19,31 @@ test-watch: options?=
 test-watch: ## Run the test suite
 	ptw $(options)
 
-run: port ?= 80
+run: PORT ?= 80
 run:
-	streamlit run app.py --server.port $(port)
+	streamlit run app.py --server.port $(PORT)
 
 run-app:
-	docker run -it -p 80:80 --name $(appname) $(hub-imagename):latest
+	docker run -it -p 9888:8888 -e PORT=9888 --name $(appname) $(appname):latest
 
 build:
 	docker build . -t $(appname)
 
 tag: build
-	docker tag keyword_extractor $(appname):$(version)
-	docker tag keyword_extractor $(hub-imagename):$(version)
-	docker tag keyword_extractor $(hub-imagename):latest
+	docker tag $(appname) $(appname):$(version)
+	docker tag $(appname) $(hub-imagename):$(version)
+	docker tag $(appname) $(hub-imagename):latest
+
 
 push: tag
 	docker push $(hub-imagename):$(version)
 	docker push $(hub-imagename):latest
+
+heroku-deploy: build
+	docker tag $(appname) registry.heroku.com/$(app)/web
+	heroku container:login
+	heroku container:push web -a $(app)
+	heroku container:release web -a $(app)
+
+
 

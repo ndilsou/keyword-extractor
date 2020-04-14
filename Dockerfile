@@ -15,7 +15,7 @@ RUN pipenv install --system --deploy \
         && spacy download en_core_web_sm
 
 COPY keyword_extractor ./keyword_extractor
-COPY app.py ./
+COPY app.py Makefile ./
 
-EXPOSE 80
-CMD ["streamlit", "run", "app.py"]
+EXPOSE $PORT
+CMD ["make", "run"]
