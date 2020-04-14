@@ -15,6 +15,13 @@ fledge report that will show the keywords in context.
 Loading the EmbedRank model may take some time on the first run as the universal sentence encoder needs to be fetched from
 Tensorflow Hub. It should get cached on subsequent executions.
 
+
+## For development
+
+0. make sure you have Python 3.7 installed on your local machine.
+1. Install pipenv via `pip install pipenv`
+2. run `make setup`
+
 ## TODO
 - allow user to select model parameters from sidebar.
 - add a default corpus.
