@@ -9,10 +9,13 @@ RUN apt-get update -y \
       && pip install pipenv
 
 WORKDIR /usr/app/
-COPY Pipfile Pipfile.lock app.py keyword_extractor ./
+COPY Pipfile Pipfile.lock ./
 
 RUN pipenv install --system --deploy \
         && spacy download en_core_web_sm
+
+COPY keyword_extractor ./keyword_extractor
+COPY app.py ./
 
 EXPOSE 80
 CMD ["streamlit", "run", "app.py"]
