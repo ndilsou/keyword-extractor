@@ -16,5 +16,8 @@ test-watch: ## Run the test suite
 run:
 	streamlit run app.py
 
+docker-run:
+	docker run -it keyword_extractor
+
 build:
 	docker build . -t keyword_extractor
