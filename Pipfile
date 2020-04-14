@@ -1,0 +1,34 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pytest = "*"
+ipython = "*"
+mypy = "*"
+pylint = "*"
+autopep8 = "*"
+jupyter = "*"
+jupyterlab = "*"
+matplotlib = "*"
+seaborn = "*"
+pytest-watch = "*"
+isort = "*"
+ipython-autotime = "*"
+
+[packages]
+wordcloud = "*"
+nltk = "*"
+spacy = "*"
+scipy = "*"
+sklearn = "*"
+cytoolz = "*"
+textacy = "*"
+streamlit = "*"
+pandas = "*"
+tensorflow = "*"
+tensorflow-hub = "*"
+
+[requires]
+python_version = "3.7"
