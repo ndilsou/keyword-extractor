@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import abstractmethod
-from typing import Dict, List, Sequence, Tuple, TypedDict
+from typing import Dict, List, Sequence, Tuple
 from dataclasses import dataclass, field
 
 from spacy.language import Language
@@ -55,7 +55,6 @@ class KeywordExtractor:
             key = _get_key(span, attr)
             start_char = span.start_char - span.sent.start_char
             end_char = span.end_char - span.sent.start_char
-            print(key)
             results[key].append(SentenceMatch(sent, start_char, end_char))
 
         return results

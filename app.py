@@ -14,6 +14,8 @@ from keyword_extractor.extractors import KeywordExtractor, ExtractionResult, Doc
 from keyword_extractor.utils import summarize_text, highlight_sentence
 
 HTML_SPACE = '&nbsp;' # To help with markdown formating
+HASH_FUNCS = {Language: id, Corpus: hash}
+
 
 def main():
     with st.spinner(text='Loading NLP model...'):
@@ -73,7 +75,7 @@ def file_uploader(store: dict):
     if st.sidebar.button("Clear file"):
         store.pop('text_corpus', None)
         store.pop('corpus', None)
-    
+
     corpus = store.get('text_corpus')
     if corpus:
 
@@ -90,19 +92,26 @@ def model_selector(store: dict):
     store['model_params'] = {'model': model, 'topn': topn}
 
 
+@st.cache(hash_funcs={Language: id, Corpus: hash}, allow_output_mutation=True)
 def extract_keywords(corpus: Corpus, params: dict) -> ExtractionResult:
     klass = {
         'TfIdf': extractors.TfIdfKeywordExtractor,
-        'TextRank': extractors.TextRankKeywordExtractor
+        'TextRank': extractors.TextRankKeywordExtractor,
+        'EmbedRank': extractors.EmbedRankKeywordExtractor
     }.get(params['model'], None)
     extractor = klass(params['topn'])
     with st.spinner(text='Training in progress...'):
-        extractor.fit(corpus)
+        extractor = fit_model(extractor, corpus)
 
     with st.spinner(text='Extraction in progress...'):
         result = extractor.extract(corpus)
 
     return result
+
+
+@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
+def fit_model(model: KeywordExtractor, corpus: Corpus) -> KeywordExtractor:
+    return model.fit(corpus)
 
 
 def extraction_report(result: ExtractionResult):
@@ -156,14 +165,14 @@ def keyword_report(keyword, doc_matches: Iterable[DocMatch]):
     st.markdown(f'#### {keyword}')
 
     for doc_match in doc_matches:
-        st.markdown(f'* ##### file: {doc_match.fileid}')
-        st.markdown(f'* ##### score: {doc_match.score:.3f}')
+        st.markdown(f'- ##### file: {doc_match.fileid}')
+        st.markdown(f'- ##### score: {doc_match.score:.3f}')
         for sent_match in doc_match.sents:
             highlighted_sent = highlight_sentence(sent_match.text, sent_match.start_char, sent_match.end_char)
             st.markdown(f'> {highlighted_sent}')
 
 
-@st.cache(hash_funcs={Language: id}, allow_output_mutation=True)
+@st.cache(hash_funcs=HASH_FUNCS, allow_output_mutation=True)
 def get_spacy_lang() -> Language:
     return spacy.load('en_core_web_sm')
 
